@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# modele YOLO descarcate si videoclipuri de test (fisiere mari)
+*.pt
+videos/
