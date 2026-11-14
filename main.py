@@ -22,9 +22,17 @@ model = YOLO(MODEL_NAME)
 source = VideoSource(VIDEO_PATH)
 selector= TargetSelector(TARGET_CLASS,SIZE_RULE,MAX_LOST_FRAMES)
 print(f"Sursa: {source.width}x{source.height}, {source.fps:.0f} FPS")
+print("Click stanga pe un obiect pentru a-l alege ca tinta. Tasta q = iesire.")
+
+click = {"point": None}  
+
+def on_mouse(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        click["point"] = (x, y)
 
 cv2.namedWindow("Drone tracker", cv2.WINDOW_NORMAL)
 cv2.resizeWindow("Drone tracker", 960,455)
+cv2.setMouseCallback("Drone tracker", on_mouse)
 
 prev_time = time.time()
 frame_index = 0           # numarul cadrului curent
@@ -50,6 +58,17 @@ while True:
         verbose=False,
     )
     tracks=extract_tracks(results[0])
+    # Alegere manuala: daca s-a dat click, alegem obiectul de acolo
+    if click["point"] is not None:
+        x, y = click["point"]
+        click["point"] = None
+        chosen = selector.select_at(x, y, tracks)
+        if chosen is not None:
+            print(f"[cadru {frame_index}] Click la ({x}, {y}): "
+                  f"tinta aleasa manual id {chosen.track_id}")
+        else:
+            print(f"[cadru {frame_index}] Click la ({x}, {y}): "
+                  f"niciun obiect in apropiere")
     target=selector.update(tracks)
     # 1. Tinta veche a fost abandonata (a lipsit prea mult)
     if last_target_id is not None and selector.target_id != last_target_id:
@@ -66,7 +85,8 @@ while True:
                   f"incredere {target.confidence:.2f}")
         elif last_lost_frames > 0:
             print(f"[cadru {frame_index}] Tinta id {target.track_id} "
-                  f"regasita dupa {last_lost_frames} cadre")
+                  f"regasita dupa {last_lost_frames} cadre | "
+                  f"incredere {target.confidence:.2f}")
         last_target_id = target.track_id
         last_confidence = target.confidence
 

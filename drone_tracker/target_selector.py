@@ -1,3 +1,5 @@
+import math
+
 class TargetSelector:
     """Alege automat tinta dupa tip si marime si o pastreaza intre cadre."""
 
@@ -38,3 +40,24 @@ class TargetSelector:
 
         self.target_id = target.track_id
         return target
+
+    def select_at(self, x, y ,tracks, max_distance=50):
+        """Alege ca tinta obiectul aflat la pozitia (x,y), unde s-a dat click."""
+        # 1. Obiectele al caror chenar contine punctul
+        inside = [t for t in tracks
+                  if t.x1 <= x <= t.x2 and t.y1 <= y <= t.y2]
+        if inside:
+            chosen = min(inside, key=lambda t: t.area)
+        else:
+            # 2. Altfel, obiectul cu centrul cel mai apropiat de punct
+            def distance(t):
+                cx, cy = t.center
+                return math.hypot(cx - x, cy - y)
+
+            chosen = min(tracks, key=distance, default=None)
+            if chosen is None or distance(chosen) > max_distance:
+                return None
+
+        self.target_id = chosen.track_id
+        self.lost_frames = 0
+        return chosen
