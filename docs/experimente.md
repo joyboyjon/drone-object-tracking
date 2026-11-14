@@ -41,7 +41,7 @@ Am masurat cate ID-uri diferite apar pe ecran si care este cel mai mare ID atrib
 Parametri modificati in `config/bytetrack_custom.yaml`:
 
 - `new_track_thresh`: 0.25 -> 0.4 (increderea minima pentru a porni o urmarire noua)
-- `track_buffer`: 30 -> 60 (cate cadre este pastrat un obiect pierdut, aprox. 2 secunde)
+- `track_buffer`: 30 -> 60 (cate cadre este pastrat un obiect pierdut, aprox. 6 secunde)
 
 ### Concluzii
 
@@ -56,3 +56,62 @@ Parametri modificati in `config/bytetrack_custom.yaml`:
 - O memorie mai lunga creste riscul ca, la revenirea unui obiect pierdut, ID-ul sa fie atribuit gresit altei persoane aflate in apropiere.
 
 Pentru proiect, compromisul este acceptabil: scopul este urmarirea stabila a unei singure tinte vizibile, nu detectarea tuturor persoanelor din imagine.
+
+## Comparatie YOLO11 si YOLO26
+
+Aceeasi metoda de masurare ca la primul experiment, pe acelasi clip. Toate rularile din acest tabel au fost facute dupa actualizarea bibliotecii Ultralytics (necesara pentru YOLO26).
+
+| Model   | imgsz | Persoane/cadru | Masini/cadru | FPS mediu |
+|---------|------:|---------------:|-------------:|----------:|
+| yolo11n |  1280 |           18,5 |          8,5 |      12,5 |
+| yolo26n |   640 |            1,7 |          3,5 |      23,3 |
+| yolo26n |   960 |            6,9 |          7,3 |      18,1 |
+| yolo26n |  1280 |           16,2 |          7,8 |      12,3 |
+| yolo26s |  1280 |           30,1 |         12,4 |       5,4 |
+
+### Concluzii
+
+- YOLO26 este mai nou (lansat in ianuarie 2026), iar producatorul il prezinta ca fiind mai rapid pe procesor si mai bun la obiecte mici. Pe clipul si pe laptopul folosite aici, aceste avantaje nu s-au confirmat.
+- La varianta nano si rezolutia 1280, YOLO11 detecteaza putin mai multe persoane si masini decat YOLO26, la aceeasi viteza.
+- Variantele "s" ale ambelor familii au detectie foarte buna, dar sunt prea lente (sub 6 FPS) pentru urmarirea in timp real.
+- Raman la **yolo11n cu imgsz=1280**.
+
+### Observatii
+
+- Masuratorile producatorului au fost facute cu modelul exportat in format ONNX, pe alt hardware. Aici modelul ruleaza direct in PyTorch, pe un procesor AMD fara placa video dedicata.
+- Clipul de test (noapte, persoane foarte mici) este un caz particular; rezultatele pot fi diferite pe alte tipuri de imagini, de exemplu pe filmari aeriene de zi.
+- Numarul de detectii depinde de pragul de incredere folosit (implicit 0.25). Daca un model da in general scoruri de incredere mai mici, pierde mai multe detectii la acelasi prag.
+- Reluarea testului cu yolo11n dupa actualizarea bibliotecii a dat valori cu cateva procente diferite fata de prima masurare (18,5 fata de 19,4 persoane/cadru). Diferentele mici dintre configuratii nu trebuie deci considerate semnificative.
+
+## Alegerea automata a tintei (tip + marime)
+
+Configuratie: tinta = persoana, regula = cea mai mare, asteptare = 60 de cadre.
+
+| Indicator                 | Valoare    |
+|---------------------------|-----------:|
+| Cadre procesate           |        628 |
+| Tinte alese               |          3 |
+| Cadre cu tinta vizibila   | 417 (66%)  |
+
+Evolutia increderii modelului pentru fiecare tinta, la alegere si in momentele in care a fost pierduta:
+
+| Tinta | Increderea                                    |
+|-------|-----------------------------------------------|
+| 11    | 0.44 (alegere) -> 0.50 -> 0.28 -> 0.11        |
+| 63    | 0.36 (alegere) -> 0.51 -> 0.27 -> 0.24 -> 0.10 |
+| 146   | 0.65 (alegere) -> 0.32 -> 0.25 -> 0.14 -> 0.13 |
+
+### Observatii
+
+- Tinta isi pastreaza ID-ul dupa pierderi scurte (pana la 34 de cadre in test), datorita memoriei trackerului.
+- Regula "cea mai mare" alege persoane din partea de jos a imaginii, deoarece acestea sunt cele mai apropiate de camera.
+- Tinta este pierduta intermitent chiar daca persoana este vizibila integral in imagine. In 7 din 9 pierderi, increderea modelului scazuse treptat sub pragurile trackerului (ultimele valori: 0.10-0.32).
+- Increderea scade pe masura ce persoana se apropie de coltul din stanga-jos. Cauza probabila: camera este montata sus, iar persoanele apropiate sunt vazute aproape de deasupra, diferit de imaginile pe care a fost antrenat modelul.
+- In 2 din 9 pierderi tinta a disparut brusc, cu incredere buna (0.50-0.51). Cauza probabila este alta (de exemplu apropierea de alte persoane).
+- Aceeasi persoana a primit doua ID-uri diferite (11 si 63): dupa 60 de cadre fara detectie, trackerul a renuntat la ID-ul vechi, iar la redetectare persoana a fost considerata un obiect nou. ByteTrack nu compara aspectul obiectelor, ci doar pozitia si marimea lor.
+
+### Imbunatatiri planificate (M3)
+
+- Regasirea tintei dupa pozitie, marime si culoare, pentru a recunoaste aceeasi persoana chiar daca trackerul i-a atribuit un ID nou.
+- Evitarea alegerii tintelor aflate la marginea imaginii.
+- Optional: testarea unui prag minim de incredere mai mic pentru tracker.
