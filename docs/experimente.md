@@ -115,3 +115,27 @@ Evolutia increderii modelului pentru fiecare tinta, la alegere si in momentele i
 - Regasirea tintei dupa pozitie, marime si culoare, pentru a recunoaste aceeasi persoana chiar daca trackerul i-a atribuit un ID nou.
 - Evitarea alegerii tintelor aflate la marginea imaginii.
 - Optional: testarea unui prag minim de incredere mai mic pentru tracker.
+
+## Alegerea tintei prin click si analiza miscarii
+
+### Alegerea prin click
+
+| Mod de alegere        | Tinte alese | Cadre cu tinta vizibila |
+|-----------------------|------------:|------------------------:|
+| automat (cea mai mare)|           3 |               417 (66%) |
+| manual (click)        |          11 |               504 (80%) |
+
+- Prin click au fost alese persoane usor de vazut, cu incredere mare (0.86, 0.69, 0.61), in timp ce alegerea automata lua persoanele cele mai mari din partea de jos a imaginii, detectate mai slab.
+- Un click poate rata daca persoana nu este detectata exact in acel moment (detectie intermitenta). Al doilea click, in acelasi loc, a selectat persoana corect.
+- O persoana mica, aflata departe de camera (tinta 197, arie 364 px), a fost urmarita 151 de cadre fara nicio pierdere, in timp ce persoanele mari din partea de jos se pierdeau la fiecare 7-8 cadre. Acest lucru sustine ipoteza ca unghiul de sus afecteaza detectia persoanelor apropiate de camera.
+
+### Analiza miscarii
+
+- Viteza se calculeaza din pozitiile centrului tintei, in pixeli pe secunda, folosind numarul de cadre al clipului (30 FPS), nu viteza de procesare.
+- Cu o fereastra de 10 pozitii, sageata de directie avea mici variatii de scurta durata, cauzate de modificarile chenarului (pozitia picioarelor, incredere mica). Cu 20 de pozitii, sageata este mai stabila, dar reactioneaza mai lent la schimbarile de directie. Am ales 20.
+- Traseul este pastrat pentru fiecare obiect ales cel putin o data, inclusiv in perioadele in care nu este tinta curenta. La revenirea la o tinta anterioara, traseul este afisat complet.
+- Limita: daca trackerul atribuie un ID nou aceleiasi persoane, istoricul porneste de la zero.
+
+### Imbunatatiri planificate (M5)
+
+- Incredere minima pentru alegerea automata a tintei (de exemplu 0.4), pentru a evita tintele detectate slab.

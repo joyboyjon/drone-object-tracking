@@ -6,7 +6,8 @@ from ultralytics import YOLO
 from drone_tracker.video_source import VideoSource
 from drone_tracker.tracks import extract_tracks
 from drone_tracker.target_selector import TargetSelector
-from drone_tracker.drawing import draw_tracks
+from drone_tracker.drawing import draw_tracks, draw_motion
+from drone_tracker.motion import MotionAnalyzer
 
 VIDEO_PATH = "videos/test1-Sinjuku-Tokyo.mp4"
 MODEL_NAME = "yolo11n.pt"
@@ -21,6 +22,7 @@ MAX_LOST_FRAMES=60
 model = YOLO(MODEL_NAME)
 source = VideoSource(VIDEO_PATH)
 selector= TargetSelector(TARGET_CLASS,SIZE_RULE,MAX_LOST_FRAMES)
+motion = MotionAnalyzer(source.fps, history_size=None, speed_window=20)
 print(f"Sursa: {source.width}x{source.height}, {source.fps:.0f} FPS")
 print("Click stanga pe un obiect pentru a-l alege ca tinta. Tasta q = iesire.")
 
@@ -70,6 +72,7 @@ while True:
             print(f"[cadru {frame_index}] Click la ({x}, {y}): "
                   f"niciun obiect in apropiere")
     target=selector.update(tracks)
+    motion.update(tracks, target, frame_index)
     # 1. Tinta veche a fost abandonata (a lipsit prea mult)
     if last_target_id is not None and selector.target_id != last_target_id:
         print(f"[cadru {frame_index}] Tinta id {last_target_id} abandonata")
@@ -99,6 +102,9 @@ while True:
 
     annotated=frame.copy()
     draw_tracks(annotated, tracks, target)
+    if target is not None:
+        draw_motion(annotated, motion.trajectory(), target.center,
+                    motion.velocity())
 
     now = time.time()
     fps = 1 / (now - prev_time)
@@ -116,7 +122,7 @@ while True:
     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     if target is not None:
         info = (f"Cadru {frame_index} | centru {target.center} | "
-                f"arie {target.area} px | incredere {target.confidence:.2f}")
+                f"{motion.describe()}")
     else:
         info = f"Cadru {frame_index}"
     cv2.putText(annotated, info, (20, 80),

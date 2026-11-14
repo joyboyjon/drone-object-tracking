@@ -19,3 +19,15 @@ def draw_tracks(frame, tracks, target):
             cv2.putText(frame, label, (track.x1, track.y1 - 8),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
             cv2.circle(frame, track.center, 4, color, -1)
+
+
+def draw_motion(frame, trajectory, center, velocity):
+    """Deseneaza traseul tintei si o sageata cu directia de miscare."""
+    for i in range(1, len(trajectory)):
+        cv2.line(frame, trajectory[i - 1], trajectory[i], TARGET_COLOR, 2)
+
+    if velocity is not None:
+        vx, vy = velocity
+        # Sageata arata unde ar ajunge tinta in 0.5 secunde
+        end = (int(center[0] + vx * 0.5), int(center[1] + vy * 0.5))
+        cv2.arrowedLine(frame, center, end, (0, 255, 255), 2, tipLength=0.3)
